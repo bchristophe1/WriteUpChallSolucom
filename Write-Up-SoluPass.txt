@@ -1,0 +1,104 @@
+﻿┌───────────────────────────────────────────────────────────┐
+├───────────────────────────────────────────────────────────┤
+│	       ╔════════════════════════════╗               │
+│	       ║┌──────────────────────────┐║		    │
+│	       ║│WRITE-UP SOLUCOM CHALLENGE│║		    │
+│	       ║└──────────────────────────┘║		    │
+│              ╚════════════════════════════╝               │
+├───────────────────────────────────────────────────────────┤
+│							    │
+│$By :  #TEAM{name:XSS 117;}				    │
+│							    │
+│		¤ COHET Jean-Baptiste ¤			    │
+│		¤ BABOIN Arthur	      ¤		            │
+│		¤ CHRISTOPHE Benjamin ¤		       	    │
+│		¤ PIANEZZOLA Thomas   ¤	  		    │
+│							    │
+├───────────────────────────────────────────────────────────┤
+│			╔════════════╗ 	    		    │
+│			║INTRODUCTION║ 			    │
+│			╚════════════╝   	  	    │
+├───────────────────────────────────────────────────────────┤
+│Dans le cadre de la Nuit du Hack 2016, lors de la session  │
+│du 2 juillet, Solucom propose un challenge sous la forme   │
+│d'une application Android "SoluPass" permettant la gestion │
+│de mot de passe en ligne.  				    │
+│							    │
+│L'idée étant de lister au mieux chaque vulnérabilité décou-│
+│verte durant le pentest de l'application. 		    │
+│							    │
+│Commençons par faire le point tout d'abord sur l'appli.    │
+│Pour démarrer au mieux les différents tests, il est d'une  │
+│nécessité implaccable de décompiler l'application .apk     │
+│(décompileur en ligne), afin de désassembler les fichiers  │
+│et récupérer le code source en java (et non en smali).     │
+│							    │
+│Nous avons aussi installé l'application sur un émulateur   │
+│Android (Genymotion) afin de pouvoir l'utiliser et analyser│
+│son comportement. 					    │
+│							    │
+│Nous avons ensuite placé le téléphone en Man in The Middle,│
+│puis, étape par étape, utilisé les fonctions de l'appli-   │
+│cation (inscription d'un utilisateur, connexion avec ce    │
+│dernier, ajout de "compte", sauvegarde sur le serveur,     │
+│récupération de données), le tout en repérant les flux de  │
+│données afin de pouvoir les visualiser séparément.         │
+│							    │
+│Les communications étant chiffrées en SSL/TLS, nous avons  │
+│eu l'idée de remplacer le certificat à la volée (vulnérabi-│
+│lité du protocole d'échange de clé de Diffie Hellman) afin │
+│de pouvoir déchiffrer les communications puis  les         │
+│rechiffrer avant l'envoie au serveur.			    │
+│							    │
+│Nous avons donc généré un nouveau certificat valide que    │
+│nous avons installé sur le smartphone. Cependant, l'appli- │
+│cation nous renvoyait toujours le même message d'erreur    │
+│"Impossible d'établir un connexion SSL sécurisée."	    │
+│							    │
+│Avec du temps supplémentaire (ou de la main d'oeuvre),     │
+│l'idée aurait été de recompiler l'application depuis les   │
+│sources en ne la modifiant que légèrement de manière à     │
+│faciliter le reverse / débogage / déchiffrage des communi- │
+│cations.						    │
+│							    │
+├───────────────────────────────────────────────────────────┤
+│		       ╔══════════════╗ 	 	    │
+│		       ║VULNÉRABILITÉS║ 		    │
+│		       ╚══════════════╝   	  	    │
+├───────────────────────────────────────────────────────────┤
+│*SEED de la clé de déchiffrement AES présente en clair dans│
+│le fichier PassAlgo.java /fr/solucom/android/solupass/algo/│
+│                                                           │
+│*La Default_Key ("w34kcryp7015funcryp70", qui est la SEED  │
+│de l'AES) se fait avec un substring qui ne prend que la    │
+│partie "w34kcryp7015func", qui sera convertie en Bytes.    │
+│Le reste n'est pas pris en compte ("ryp70").		    │
+│							    │
+│*WebService.java donne des informations concernant les     │
+│paramètres de création du certificat, mais également sur   │
+│les requêtes qui sont effectuées en application pour toutes│
+│les fonctionnalités.					    │
+│							    │
+│*Lors de l'appel de la méthode ReadJson (à chaque GET ou   │
+│POST), si les Headers de la réponse HTTP contiennent un tag│
+│"X-Debug-tag", la réponse sera stockée dans :              │
+│/fr.solucom.android.solupass.txt à la racine du stockage   │
+│externe (généralement carte SD). 			    │
+│==>Si nous étions apte à effectuer un Man in The Middle    │
+│correctement (comme expliqué dans l'introduction), nous    │
+│serions en mesure d'ajouter cette en-tête à la volée pour  │
+│chaque réponse du serveur ce qui obligerait l'application à│
+│stocker les informations de debug.                         │
+│							    │
+│*On peut brute-forcer la récupération de compte grâce à    │
+│/ws/import?id="brute-force".  				    │
+│							    │
+│*La méthode checkServerTrusted de la classe                │
+│SoluTrustManager accepte le certificat si celui ci possède │
+│ce Distingushed Name: CN=NDH2K16,OU=Solucom,O=Solucom,     │
+│L=Paris,ST=IDF,C=FR.					    │
+│Cependant, notre propre certificat (qui contient théori-   │
+│quement le bon DN) pose toujours problème pour déchiffrer  │
+│les données.						    │
+├───────────────────────────────────────────────────────────┤
+└───────────────────────────────────────────────────────────┘
