@@ -1,2 +1,2 @@
 # WriteUpChallSolucom
-Write Up of Solucom Challeng at Nuit du Hack 2016 - CyberSecurity Conference
+Write Up of Solucom Challenge at Nuit du Hack 2016 - CyberSecurity Conference
